@@ -90,13 +90,12 @@ public abstract class AbstractJFileChooserBrowser implements FileSystemBrowser {
         final JFileChooser fileChooser = new JFileChooser(getFileSystemView());
         setFileView(fileChooser);
 
+        fileChooser.setAcceptAllFileFilterUsed(true);
         if (Platform.OS_MACOSX.equals(Platform.getOS())) {
             /* Workaround for https://bugs.openjdk.java.net/browse/JDK-8152677. See
              * org.knime.core.util.AcceptAllFileFilter and AP-6866. */
-            fileChooser.setAcceptAllFileFilterUsed(false);
             fileChooser.addChoosableFileFilter(new AcceptAllFileFilter());
-        } else {
-            fileChooser.setAcceptAllFileFilterUsed(true);
+            fileChooser.setAcceptAllFileFilterUsed(false);
         }
 
         List<SimpleFileFilter> filters = createFiltersFromSuffixes(suffixes);
