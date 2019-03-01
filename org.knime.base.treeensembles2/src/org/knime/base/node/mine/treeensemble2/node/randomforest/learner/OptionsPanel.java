@@ -51,10 +51,8 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.util.Random;
 import java.util.Set;
 
@@ -97,6 +95,7 @@ import org.knime.core.node.util.filter.column.DataColumnSpecFilterPanel;
 /**
  *
  * @author Bernd Wiswedel, KNIME AG, Zurich, Switzerland
+ * @author Adrian Nembach, KNIME GmbH, Konstanz, Germany
  */
 public final class OptionsPanel extends JPanel {
 
@@ -156,14 +155,11 @@ public final class OptionsPanel extends JPanel {
         super(new GridBagLayout());
         Class<? extends DataValue> targetClass = isRegression ? DoubleValue.class : NominalValue.class;
         m_targetColumnBox = new ColumnSelectionComboxBox((Border)null, targetClass);
-        m_targetColumnBox.addItemListener(new ItemListener() {
-            @Override
-            public void itemStateChanged(final ItemEvent e) {
+        m_targetColumnBox.addItemListener(e -> {
                 if (e.getStateChange() == ItemEvent.SELECTED) {
-                    newTargetSelected((DataColumnSpec)e.getItem());
+                    newTargetSelected();
                 }
-            }
-        });
+            });
         m_fingerprintColumnBox = new ColumnSelectionComboxBox((Border)null,
             new DataValueColumnFilter(BitVectorValue.class, ByteVectorValue.class, DoubleVectorValue.class));
         m_includeColumnsFilterPanel2 = new DataColumnSpecFilterPanel();
@@ -173,41 +169,28 @@ public final class OptionsPanel extends JPanel {
         final ButtonGroup bg = new ButtonGroup();
         bg.add(m_useFingerprintColumnRadio);
         bg.add(m_useOrdinaryColumnsRadio);
-        ActionListener actListener = new ActionListener() {
-            @Override
-            public void actionPerformed(final ActionEvent e) {
+        ActionListener actListener = e -> {
                 boolean isFP = bg.getSelection() == m_useFingerprintColumnRadio.getModel();
                 m_fingerprintColumnBox.setEnabled(isFP);
                 m_includeColumnsFilterPanel2.setEnabled(!isFP);
-            }
-        };
+            };
         m_useFingerprintColumnRadio.addActionListener(actListener);
         m_useOrdinaryColumnsRadio.addActionListener(actListener);
         m_useFingerprintColumnRadio.doClick();
         m_hiliteCountSpinner = new JSpinner(new SpinnerNumberModel(2000, 1, Integer.MAX_VALUE, 100));
         m_enableHiliteChecker = new JCheckBox("Enable Hilighting (#patterns to store)", true);
-        m_enableHiliteChecker.addItemListener(new ItemListener() {
-            @Override
-            public void itemStateChanged(final ItemEvent e) {
-                m_hiliteCountSpinner.setEnabled(m_enableHiliteChecker.isSelected());
-            }
-        });
+        m_enableHiliteChecker.addItemListener(e -> m_hiliteCountSpinner.setEnabled(m_enableHiliteChecker.isSelected()));
         m_enableHiliteChecker.doClick();
         m_saveTargetDistributionInNodesChecker = new JCheckBox(
             "Save target distribution in tree nodes (memory expensive - only important for tree view and PMML export)");
 
         // Tree Options
 
-        m_splitCriterionsBox = new JComboBox(SplitCriterion.values());
+        m_splitCriterionsBox = new JComboBox<>(SplitCriterion.values());
 
         m_maxLevelSpinner = new JSpinner(new SpinnerNumberModel(3, 1, Integer.MAX_VALUE, 1));
         m_maxLevelChecker = new JCheckBox("Limit number of levels (tree depth)");
-        m_maxLevelChecker.addItemListener(new ItemListener() {
-            @Override
-            public void itemStateChanged(final ItemEvent e) {
-                m_maxLevelSpinner.setEnabled(m_maxLevelChecker.isSelected());
-            }
-        });
+        m_maxLevelChecker.addItemListener(e -> m_maxLevelSpinner.setEnabled(m_maxLevelChecker.isSelected()));
         m_maxLevelChecker.doClick();
 
         if (isRegression) {
@@ -216,13 +199,7 @@ public final class OptionsPanel extends JPanel {
             m_minChildNodeSizeSpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
         }
         m_minChildNodeSizeChecker = new JCheckBox("Minimum node size");
-        m_minChildNodeSizeChecker.addItemListener(new ItemListener() {
-            @Override
-            public void itemStateChanged(final ItemEvent e) {
-                final boolean s = m_minChildNodeSizeChecker.isSelected();
-                m_minChildNodeSizeSpinner.setEnabled(s);
-            }
-        });
+        m_minChildNodeSizeChecker.addItemListener(e -> m_minChildNodeSizeSpinner.setEnabled(m_minChildNodeSizeChecker.isSelected()));
         m_minChildNodeSizeChecker.doClick();
 
         // Forest Options
@@ -232,21 +209,12 @@ public final class OptionsPanel extends JPanel {
         m_seedTextField = new JTextField(20);
         m_newSeedButton = new JButton("New");
         m_seedChecker = new JCheckBox("Use static random seed");
-        m_seedChecker.addItemListener(new ItemListener() {
-            @Override
-            public void itemStateChanged(final ItemEvent e) {
+        m_seedChecker.addItemListener(e -> {
                 final boolean selected = m_seedChecker.isSelected();
                 m_seedTextField.setEnabled(selected);
                 m_newSeedButton.setEnabled(selected);
-            }
-        });
-        m_newSeedButton.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(final ActionEvent e) {
-                m_seedTextField.setText(Long.toString(new Random().nextLong()));
-            }
-        });
+            });
+        m_newSeedButton.addActionListener(e -> m_seedTextField.setText(Long.toString(new Random().nextLong())));
         m_seedChecker.doClick();
 
         m_isRegression = isRegression;
@@ -411,20 +379,22 @@ public final class OptionsPanel extends JPanel {
      */
     public void loadSettingsFrom(final DataTableSpec inSpec, final TreeEnsembleLearnerConfiguration cfg)
         throws NotConfigurableException {
-        int nrNominalCols = 0;
-        int nrNumericCols = 0;
-        for (DataColumnSpec col : inSpec) {
-            DataType type = col.getType();
-            if (type.isCompatible(NominalValue.class)) {
-                nrNominalCols += 1;
-            } else if (type.isCompatible(DoubleValue.class)) {
-                nrNumericCols += 1;
-            }
-        }
-        boolean hasOrdinaryColumnsInInput = nrNominalCols > 1 || nrNumericCols > 0;
-        boolean hasFPColumnInInput =
-            inSpec.containsCompatibleType(BitVectorValue.class) || inSpec.containsCompatibleType(ByteVectorValue.class)
-                || inSpec.containsCompatibleType(DoubleVectorValue.class);
+        loadColumnSettings(inSpec, cfg);
+        loadHiliteSettings(cfg);
+        loadTreeSettings(cfg);
+        loadForestSettings(cfg);
+    }
+
+    /**
+     * @param inSpec {@link DataTableSpec} of the input table
+     * @param cfg loaded configuration
+     * @throws NotConfigurableException if <b>inSpec</b> contains no column compatible with the target type
+     * (nominal for classification, numerical for regression)
+     */
+    private void loadColumnSettings(final DataTableSpec inSpec, final TreeEnsembleLearnerConfiguration cfg)
+        throws NotConfigurableException {
+        boolean hasOrdinaryColumnsInInput = inputHasOrdinaryColumns(inSpec);
+        boolean hasFPColumnInInput = inputHasVectorColumn(inSpec);
 
         String fpColumn = cfg.getFingerprintColumn();
         m_useOrdinaryColumnsRadio.setEnabled(true);
@@ -453,19 +423,13 @@ public final class OptionsPanel extends JPanel {
         }
 
         m_targetColumnBox.update(inSpec, cfg.getTargetColumn());
+    }
 
-        int hiliteCount = cfg.getNrHilitePatterns();
-        if (hiliteCount > 0) {
-            m_enableHiliteChecker.setSelected(true);
-            m_hiliteCountSpinner.setValue(hiliteCount);
-        } else {
-            m_enableHiliteChecker.setSelected(false);
-            m_hiliteCountSpinner.setValue(2000);
-        }
+    /**
+     * @param cfg loaded configuration
+     */
+    private void loadTreeSettings(final TreeEnsembleLearnerConfiguration cfg) {
         m_saveTargetDistributionInNodesChecker.setSelected(cfg.isSaveTargetDistributionInNodes());
-
-        // Tree Options
-
         m_splitCriterionsBox.setSelectedItem(cfg.getSplitCriterion());
         int maxLevel = cfg.getMaxLevels();
         if ((maxLevel != TreeEnsembleLearnerConfiguration.MAX_LEVEL_INFINITE) != m_maxLevelChecker.isSelected()) {
@@ -491,9 +455,12 @@ public final class OptionsPanel extends JPanel {
         } else {
             m_minChildNodeSizeSpinner.setValue(minChildNodeSize);
         }
+    }
 
-        // Forest Options
-
+    /**
+     * @param cfg loaded configuration
+     */
+    private void loadForestSettings(final TreeEnsembleLearnerConfiguration cfg) {
         m_nrModelsSpinner.setValue(cfg.getNrModels());
 
         Long seed = cfg.getSeed();
@@ -501,6 +468,49 @@ public final class OptionsPanel extends JPanel {
             m_seedChecker.doClick();
         }
         m_seedTextField.setText(Long.toString(seed != null ? seed : System.currentTimeMillis()));
+    }
+
+    /**
+     * @param cfg loaded configuration
+     */
+    private void loadHiliteSettings(final TreeEnsembleLearnerConfiguration cfg) {
+        int hiliteCount = cfg.getNrHilitePatterns();
+        if (hiliteCount > 0) {
+            m_enableHiliteChecker.setSelected(true);
+            m_hiliteCountSpinner.setValue(hiliteCount);
+        } else {
+            m_enableHiliteChecker.setSelected(false);
+            m_hiliteCountSpinner.setValue(2000);
+        }
+    }
+
+    /**
+     * @param inSpec {@link DataTableSpec} of the input table
+     * @return true if the input contains a supported vector column
+     */
+    private static boolean inputHasVectorColumn(final DataTableSpec inSpec) {
+        return inSpec.containsCompatibleType(BitVectorValue.class) || inSpec.containsCompatibleType(ByteVectorValue.class)
+            || inSpec.containsCompatibleType(DoubleVectorValue.class);
+    }
+
+    /**
+     * @param inSpec {@link DataTableSpec} of the input table
+     * @return true if the input contains at least one supported ordinary column
+     */
+    private static boolean inputHasOrdinaryColumns(final DataTableSpec inSpec) {
+        int nrNominalCols = 0;
+        int nrNumericCols = 0;
+        for (DataColumnSpec col : inSpec) {
+            DataType type = col.getType();
+            if (type.isCompatible(NominalValue.class)) {
+                nrNominalCols += 1;
+            } else if (type.isCompatible(DoubleValue.class)) {
+                nrNumericCols += 1;
+            }
+        }
+        // FIXME: potential bug because this only assumes classifications (seems to work anyway because
+        // the check is performed correctly on a higher level
+        return nrNominalCols > 1 || nrNumericCols > 0;
     }
 
     /**
@@ -575,9 +585,8 @@ public final class OptionsPanel extends JPanel {
 
 
     /**
-     * @param item
      */
-    private void newTargetSelected(final DataColumnSpec item) {
+    private void newTargetSelected() {
         DataColumnSpec col = (DataColumnSpec)m_targetColumnBox.getSelectedItem();
         if (col == null) {
             return;
