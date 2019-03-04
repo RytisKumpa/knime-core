@@ -1,22 +1,17 @@
 #!groovy
 
-library "knime-pipeline@$BRANCH_NAME"
+library "knime-pipeline@build/DEVOPS-35_standalone-knime-core-build"
 
 properties([
   parameters([
     stringParam(
-      name: 'BRANCH_NAME',
-      defaultValue: 'build/DEVOPS-35_standalone-knime-core-build',
-      description: 'Name of the branch to build.'
-    ),
-    stringParam(
       name: 'KNIME_TP_P2',
-      defaultValue: '${P2_REPO}/knime-tp/',
+      defaultValue: '${P2_REPO}/knime-tp/build%252FDEVOPS-35-rebased/repository/',
       description: 'KNIME Target Platform P2 update site url.'
     ),
     stringParam(
       name: 'KNIME_SHARED_P2',
-      defaultValue: '${P2_REPO}/knime-shared/',
+      defaultValue: '${P2_REPO}/knime-shared/build%252FDEVOPS-35_standalone-knime-core-build/repository/',
       description: 'org.knime.update.shared site url.'
     )
   ]),
